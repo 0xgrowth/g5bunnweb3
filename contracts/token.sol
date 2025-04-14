@@ -11,6 +11,8 @@ contract SocialNFT is ERC721, Ownable {
     
     mapping(address => uint256) public engagementPoints;
     mapping(address => Level) public userLevels;
+    mapping(uint256 => Level) public tokenIdToLevel;
+    mapping(address => uint256) public addressToTokenId; 
     
     constructor() ERC721("SocialNFT", "SNFT") {
         tokenCounter = 0;
@@ -56,4 +58,56 @@ contract SocialNFT is ERC721, Ownable {
         require(from == address(0) || to == address(0), "Soulbound: Token cannot be transferred");
         super._beforeTokenTransfer(from, to, tokenId);
     }
+
+    function _mintOrUpgradeNFT(address user, Level level) internal {
+        uint256 tokenId = addressToTokenId[user];
+    
+        // If user already has an NFT, burn it
+        if (_exists(tokenId)) {
+            _burn(tokenId);
+        }
+    
+        // Mint new NFT with a unique tokenId
+        tokenCounter++;
+        uint256 newTokenId = tokenCounter;
+        _mint(user, newTokenId);
+    
+        // Update mappings
+        tokenIdToLevel[newTokenId] = level;
+        addressToTokenId[user] = newTokenId;
+        userLevels[user] = level;
+    }
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(_exists(tokenId), "Token does not exist");
+    
+        Level level = tokenIdToLevel[tokenId];
+        string memory levelName;
+    
+        if (level == Level.Newbie) levelName = "Newbie";
+        else if (level == Level.RisingStar) levelName = "Rising Star";
+        else if (level == Level.Influencer) levelName = "Influencer";
+        else levelName = "Social Icon";
+    
+    return string(abi.encodePacked(
+        "data:application/json;utf8,{",
+        "\"name\":\"SocialNFT #", Strings.toString(tokenId), "\",",
+        "\"description\":\"A Social Engagement NFT\",",
+        "\"attributes\":[{\"trait_type\":\"Level\",\"value\":\"", levelName, "\"}],",
+        "\"image\":\"", _getLevelImage(level), "\"",
+        "}"
+    ));
+}
+
+    function _getLevelImage(Level level) internal pure returns (string memory) {
+        // Could return IPFS/Arweave URLs or on-chain SVG
+        if (level == Level.Newbie) return "ipfs://Qm...Newbie";
+        else if (level == Level.RisingStar) return "ipfs://Qm...RisingStar";
+        else if (level == Level.Influencer) return "ipfs://Qm...Influencer";
+        else return "ipfs://Qm...SocialIcon";
+    }
+    function likePost(address creator) public {
+        engagementPoints[creator] += 1;
+        _upgradeNFT(creator);
+}
 }
